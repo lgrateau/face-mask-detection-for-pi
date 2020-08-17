@@ -12,9 +12,14 @@ import imutils
 import time
 import cv2
 import os
+displayLed=True
 from numpy import asarray
-from sense_hat import SenseHat
-sense = SenseHat()
+try:
+    from sense_hat import SenseHat
+except ImportError:
+    displayLed=False
+if displayLed:
+    sense = SenseHat()
 
 # Define some colours
 g = (0, 255, 0) # Green
@@ -48,19 +53,20 @@ creeper_nomakk_pixels = [
 
 
 def display_message(mask_detected):
-    if mask_detected:
-        sense.set_pixels(creeper_mask_pixels)
-        time.sleep(2.0)
-        sense.clear()
-    else:
-        sense.set_pixels(creeper_nomakk_pixels)
-        time.sleep(0.5)
-        sense.clear()
-        time.sleep(0.5)
-        sense.set_pixels(creeper_nomakk_pixels)
-        time.sleep(0.5)
-        sense.clear()
-        
+    if displayLed:
+        if mask_detected:
+            sense.set_pixels(creeper_mask_pixels)
+            time.sleep(2.0)
+            sense.clear()
+        else:
+            sense.set_pixels(creeper_nomakk_pixels)
+            time.sleep(0.5)
+            sense.clear()
+            time.sleep(0.5)
+            sense.set_pixels(creeper_nomakk_pixels)
+            time.sleep(0.5)
+            sense.clear()
+            
 def detect_and_predict_mask(frame, faceNet, maskNet):
     # grab the dimensions of the frame and then construct a blob
     # from it
