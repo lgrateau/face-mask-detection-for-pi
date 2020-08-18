@@ -1,0 +1,6 @@
+# Requirement for Face mask detector
+tensorflow
+imutils
+sense_hat
+flask
+opencv-contrib-python

@@ -6,12 +6,82 @@ from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 import tensorflow as tf
 from imutils.video import VideoStream
+from imutils.video import FPS
 import numpy as np
 import argparse
 import imutils
 import time
 import cv2
 import os
+from flask import Flask, render_template, Response
+
+print (sys_platform)
+app = Flask(__name__)
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+def gen():
+    # Initialize frame rate calculation
+    frame_rate_calc = 1
+    freq = cv2.getTickFrequency()
+    # loop over the frames from the video stream
+    while True:
+        # grab the frame from the threaded video stream and resize it
+        # to have a maximum width of 400 pixels
+        # Start timer (for calculating frame rate)
+        t1 = cv2.getTickCount()
+        frame = videostream.read()
+        frame = imutils.resize(frame, width=400)
+
+        # detect faces in the frame and determine if they are wearing a
+        # face mask or not
+        (locs, preds) = detect_and_predict_mask(frame, faceNet, interpreter)
+
+        # loop over the detected face locations and their corresponding
+        # locations
+        for (box, pred) in zip(locs, preds):
+            # unpack the bounding box and predictions
+            (startX, startY, endX, endY) = box
+            (mask, withoutMask) = pred
+
+            # determine the class label and color we'll use to draw
+            # the bounding box and text
+            label = "Mask" if mask > withoutMask else "No Mask"
+            color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
+
+            # include the probability in the label
+            label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
+
+            # display the label and bounding box rectangle on the output
+            # frame
+            cv2.putText(frame, label, (startX, startY - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
+            cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
+            display_message(mask > withoutMask )
+        cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
+
+        # show the output frame
+        #cv2.imshow("Frame", frame)
+        #key = cv2.waitKey(1) & 0xFF
+        # Draw framerate in corner of frame
+        
+        # Calculate framerate
+        t2 = cv2.getTickCount()
+        time1 = (t2-t1)/freq
+        frame_rate_calc= 1/time1
+
+       
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' +  cv2.imencode('.jpg', frame)[1].tobytes() + b'\r\n')
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
 displayLed=True
 from numpy import asarray
 try:
@@ -20,6 +90,8 @@ except ImportError:
     displayLed=False
 if displayLed:
     sense = SenseHat()
+
+CONFIDENCE=0.5
 
 # Define some colours
 g = (0, 255, 0) # Green
@@ -92,7 +164,7 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
 
         # filter out weak detections by ensuring the confidence is
         # greater than the minimum confidence
-        if confidence > args["confidence"]:
+        if confidence > CONFIDENCE:
             # compute the (x, y)-coordinates of the bounding box for
             # the object
             box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
@@ -127,94 +199,37 @@ def detect_and_predict_mask(frame, faceNet, maskNet):
     # locations
     return (locs, preds)
 
-# construct the argument parser and parse the arguments
-ap = argparse.ArgumentParser()
-ap.add_argument("-f", "--face", type=str,
-    default="face_detector",
-    help="path to face detector model directory")
-ap.add_argument("-m", "--model", type=str,
-    default="mask_detector.model",
-    help="path to trained face mask detector model")
-ap.add_argument("-c", "--confidence", type=float, default=0.5,
-    help="minimum probability to filter weak detections")
-args = vars(ap.parse_args())
 
-# load our serialized face detector model from disk
-print("[INFO] loading face detector model...")
-prototxtPath = os.path.sep.join([args["face"], "deploy.prototxt"])
-weightsPath = os.path.sep.join([args["face"],
-    "res10_300x300_ssd_iter_140000.caffemodel"])
-faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
+if __name__ == '__main__':
 
-# load the face mask detector model from disk
-print("[INFO] loading face mask detector model...")
-interpreter = tf.lite.Interpreter(model_path="mask_detector.tflite")
-interpreter.allocate_tensors()
+    # load our serialized face detector model from disk
+    print("[INFO] loading face detector model...")
+    prototxtPath = os.path.sep.join(["face_detector", "deploy.prototxt"])
+    weightsPath = os.path.sep.join(["face_detector",
+        "res10_300x300_ssd_iter_140000.caffemodel"])
+    faceNet = cv2.dnn.readNet(prototxtPath, weightsPath)
 
-# Get input and output tensors.
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-details=interpreter.get_tensor_details()
+    # load the face mask detector model from disk
+    print("[INFO] loading face mask detector model...")
+    interpreter = tf.lite.Interpreter(model_path="mask_detector.tflite")
+    interpreter.allocate_tensors()
 
-# initialize the video stream and allow the camera sensor to warm up
-print("[INFO] starting video stream...")
-# Initialize frame rate calculation
-frame_rate_calc = 1
-freq = cv2.getTickFrequency()
+    # Get input and output tensors.
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    details=interpreter.get_tensor_details()
 
-# Initialize video stream
-videostream = VideoStream(framerate=30).start()
-time.sleep(2.0)
+    # initialize the video stream and allow the camera sensor to warm up
+    print("[INFO] starting video stream...")
 
-# loop over the frames from the video stream
-while True:
-    # grab the frame from the threaded video stream and resize it
-    # to have a maximum width of 400 pixels
-    # Start timer (for calculating frame rate)
-    t1 = cv2.getTickCount()
-    frame = videostream.read()
-    frame = imutils.resize(frame, width=400)
 
-    # detect faces in the frame and determine if they are wearing a
-    # face mask or not
-    (locs, preds) = detect_and_predict_mask(frame, faceNet, interpreter)
+    # Initialize video stream
+    videostream = VideoStream(src=0).start()
 
-    # loop over the detected face locations and their corresponding
-    # locations
-    for (box, pred) in zip(locs, preds):
-        # unpack the bounding box and predictions
-        (startX, startY, endX, endY) = box
-        (mask, withoutMask) = pred
+    time.sleep(2.0)
 
-        # determine the class label and color we'll use to draw
-        # the bounding box and text
-        label = "Mask" if mask > withoutMask else "No Mask"
-        color = (0, 255, 0) if label == "Mask" else (0, 0, 255)
 
-        # include the probability in the label
-        label = "{}: {:.2f}%".format(label, max(mask, withoutMask) * 100)
-
-        # display the label and bounding box rectangle on the output
-        # frame
-        cv2.putText(frame, label, (startX, startY - 10),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 2)
-        cv2.rectangle(frame, (startX, startY), (endX, endY), color, 2)
-        display_message(mask > withoutMask )
-    cv2.putText(frame,'FPS: {0:.2f}'.format(frame_rate_calc),(30,50),cv2.FONT_HERSHEY_SIMPLEX,1,(255,255,0),2,cv2.LINE_AA)
-    # show the output frame
-    cv2.imshow("Frame", frame)
-    key = cv2.waitKey(1) & 0xFF
-    # Draw framerate in corner of frame
-    
-    # Calculate framerate
-    t2 = cv2.getTickCount()
-    time1 = (t2-t1)/freq
-    frame_rate_calc= 1/time1
-
-    # if the `q` key was pressed, break from the loop
-    if key == ord("q"):
-        break
-
-# do a bit of cleanup
-cv2.destroyAllWindows()
-vs.stop()
+    app.run(host='0.0.0.0', debug=True)
+        # do a bit of cleanup
+    cv2.destroyAllWindows()
+    videostream.stop()
