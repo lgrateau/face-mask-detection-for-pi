@@ -26,11 +26,15 @@
 # Use the mask detector
 
 ## Use the virtual env
+
 > ```console
 > $ source bin/activate
 > ```
  
-
+## Run the mask detector server
 > ```console
 > $ python3 detect_mask_video.py
 > ```
+
+## Open you browser
+Open a browser to this url : http://localhost:5000
