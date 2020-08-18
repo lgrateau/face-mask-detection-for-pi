@@ -1,24 +1,33 @@
 # face-mask-detection-for-pi
 
 # Installation
+  1.  Clone this code
+> ```console
+> $ git clone https://github.com/lgrateau/face-mask-detection-for-pi
+> $ cd face-mask-detection-for-pi
+> ```
 
-## Create a virtual environment
+   2. Go to the cloned directory
+> ```console
+> $ cd face-mask-detection-for-pi
+> ```   
+
+   3.  Create a virtual environment
 > ```console
 > $ python3 -m venv ./
+> $ source bin/activate
 > ```
-
-## Install python package on Mac OSx
+    4. a Install python package on Mac OSx
 > ```console
 > $ pip3 install -r requirements.txt
 > ```
 
-
-## Install python package on Windows
+    4. b Install python package on Windows
 > ```console
 > $ pip3 install -r requirements.txt
 > ```
 
-## Install python package on Rapsberry 
+    4. c Install python package on Rapsberry 
 > ```console
 > $ pip3 install -r requirements_for_pi.txt
 > ```
@@ -28,6 +37,7 @@
 ## Use the virtual env
 
 > ```console
+> $ cd face-mask-detection-for-pi
 > $ source bin/activate
 > ```
  
