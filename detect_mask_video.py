@@ -15,7 +15,6 @@ import cv2
 import os
 from flask import Flask, render_template, Response
 
-print (sys_platform)
 app = Flask(__name__)
 
 @app.route('/')
